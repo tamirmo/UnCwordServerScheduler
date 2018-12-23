@@ -7,13 +7,14 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 public class Main {
 
-	private static final int PREDICTION_INTERVAL = 5000;
-	private static final int END_OF_DAY_INTERVAL = 5000;
+	private static final int PREDICTION_INTERVAL = 4000;
+	private static final int END_OF_DAY_INTERVAL = 10000;
+	// Indicating if we want to simulate a fake business in the current run
+	private static final boolean IS_FAKE_BUSINESS_ACTIVE = false;
 	
 	public static void main(String[] args) {
 
@@ -22,13 +23,20 @@ public class Main {
 		
 		initializeTimers(endOfDayTimer, predictionsTimer);
 		
+		// Initializing the fake business if necessary
+		FakeLiveBusiness fakeLiveBusiness;
+		if(IS_FAKE_BUSINESS_ACTIVE) {
+			fakeLiveBusiness = new FakeLiveBusiness();
+			fakeLiveBusiness.start();
+		}
+		
 		System.out.println(LocalDateTime.now().toLocalTime().toString() + " Timers started");  
         Scanner in = new Scanner(System.in);
         boolean isRunning = true;
         while(isRunning) {
-        	System.out.println("Enter exit to stop timers.");    
+        	System.out.println("Enter e to stop timers.");    
         	String input = in.next();
-	        if(input.toLowerCase().equals("exit")) {
+	        if(input.toLowerCase().equals("e")) {
 	        	isRunning = false;
 	        }
         }
@@ -38,6 +46,10 @@ public class Main {
         
         predictionsTimer.cancel();
         endOfDayTimer.cancel();
+        
+        if(IS_FAKE_BUSINESS_ACTIVE) {
+			fakeLiveBusiness.stop();
+		}
 	}
 	
 	private static void initializeTimers(Timer endOfDayTimer, Timer predictionsTimer) {
@@ -53,12 +65,12 @@ public class Main {
 				  try {
 					  System.out.println(LocalDateTime.now().toLocalTime().toString() + " End of day timer elapsed");
 					  HttpEntity<String> requestEntity = new HttpEntity<String>(null, headers);
-					  ResponseEntity<String> responseEntity = rest.exchange(server + "updatePredictions", HttpMethod.POST, requestEntity, String.class);
+					  rest.exchange(server + "updatePredictions", HttpMethod.POST, requestEntity, String.class);
 				  }catch(org.springframework.web.client.ResourceAccessException ex) {
 					  System.err.println(LocalDateTime.now().toLocalTime().toString() + " Connection error in end of day timer ");
 				  }
 			  }
-			}, END_OF_DAY_INTERVAL, END_OF_DAY_INTERVAL);
+			}, 0, END_OF_DAY_INTERVAL);
 		
 		predictionsTimer = new Timer(true);
 		predictionsTimer.scheduleAtFixedRate(new TimerTask() {
@@ -67,11 +79,11 @@ public class Main {
 				  try {
 					  System.out.println(LocalDateTime.now().toLocalTime().toString() + " Prediction timer elapsed");
 					  HttpEntity<String> requestEntity = new HttpEntity<String>(null, headers);
-					  ResponseEntity<String> responseEntity = rest.exchange(server + "updatePredictions", HttpMethod.POST, requestEntity, String.class);
+					  rest.exchange(server + "updatePredictions", HttpMethod.POST, requestEntity, String.class);
 				  }catch(org.springframework.web.client.ResourceAccessException ex) {
 					  System.err.println(LocalDateTime.now().toLocalTime().toString() + " Connection error in prediction timer ");  
 				  }
 			  }
-			}, PREDICTION_INTERVAL, PREDICTION_INTERVAL);
+			}, 0, PREDICTION_INTERVAL);
 	}
 }
